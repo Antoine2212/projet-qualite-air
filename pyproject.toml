@@ -1,0 +1,23 @@
+[project]
+name = "projet-qualite-air"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "geopandas>=1.2.0",
+    "matplotlib>=3.11.2",
+    "missingno>=0.5.2",
+    "pandas>=3.0.6",
+    "pyarrow>=26.0.0",
+    "pyyaml>=6.0.3",
+    "requests>=2.34.2",
+    "scikit-learn>=1.9.1",
+    "seaborn>=0.13.2",
+]
+
+[dependency-groups]
+dev = [
+    "ipykernel>=7.4.0",
+    "nbstripout>=0.9.1",
+]
