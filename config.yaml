@@ -1,0 +1,58 @@
+# Paramètres du projet. Aucun de ces réglages ne doit être écrit en dur dans le code.
+
+# Période étudiée (dates incluses, en UTC).
+# L'API trafic de Paris ne couvre que les 13 derniers mois (depuis le 2025-09-01).
+# Pour remonter plus loin, il faudra les fichiers historiques du trafic.
+periode:
+  debut: "2025-09-01"
+  fin: "2026-09-30"
+
+chemins:
+  raw: data/raw
+  interim: data/interim
+  processed: data/processed
+
+# Comportement réseau commun à toutes les extractions.
+api:
+  timeout_s: 300        # délai maximal d'une requête
+  max_essais: 5         # nombre de tentatives avant abandon
+  pause_essai_s: 2      # pause après le 1er échec, doublée à chaque essai
+  pause_appels_s: 1     # pause entre deux appels réussis
+
+meteo:
+  url: https://archive-api.open-meteo.com/v1/archive
+  # Un seul point pour Paris (Châtelet) au départ.
+  latitude: 48.8566
+  longitude: 2.3522
+  variables:
+    - temperature_2m
+    - relative_humidity_2m
+    - precipitation
+    - surface_pressure
+    - wind_speed_10m
+    - wind_direction_10m
+  wind_speed_unit: ms   # vent en m/s plutôt qu'en km/h
+
+trafic:
+  url_base: https://opendata.paris.fr/api/explore/v2.1/catalog/datasets
+  dataset_comptages: comptages-routiers-permanents
+  dataset_referentiel: referentiel-comptages-routiers
+  colonnes: [iu_ac, t_1h, q, k, etat_trafic, etat_barre]
+  taille_page: 100      # maximum autorisé par l'API Opendatasoft
+
+# Mesures horaires des stations Airparif.
+# Le flux WFS d'Airparif (projet DIDON) ne garde que les dernières 24 h : l'historique
+# vient des fichiers horaires nationaux du LCSQA (Geod'air), qui reprennent les
+# mesures Airparif en UTC, avec leurs indicateurs de validité.
+airparif:
+  url_mesures: https://files.data.gouv.fr/ineris/lcsqa/concentrations-de-polluants-atmospheriques-reglementes/temps-reel
+  # Jeu data.gouv.fr qui contient le fichier des stations (« Dataset D »).
+  url_dataset: https://www.data.gouv.fr/api/1/datasets/5b98b648634f415309d52a50/
+  organisme: AIRPARIF
+  polluants: [NO2, PM2.5, PM10, O3, NO, NOX as NO2]
+  stations: []          # codes à garder, par exemple [FR04131, FR04055] ; vide = toutes
+
+# Fusion trafic → station (phase 3).
+fusion:
+  rayon_m: 500
+  rayons_a_tester_m: [250, 500, 1000]

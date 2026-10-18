@@ -36,9 +36,12 @@ uv run --with jupyter jupyter lab
 
 Les données ne sont pas versionnées. Les scripts les téléchargent dans `data/raw/`, puis produisent `data/interim/` et `data/processed/`.
 
+La période et les autres paramètres se règlent dans `config.yaml`. Chaque script garde en cache ce qu'il a déjà téléchargé : on peut le relancer sans risque, il ne récupère que les morceaux manquants.
+
 ```bash
-# À compléter quand les scripts existent, par exemple :
-uv run python -m src.extract.meteo
+uv run python -m src.extract.meteo      # quelques secondes
+uv run python -m src.extract.airparif   # ~30 min (un fichier par jour)
+uv run python -m src.extract.trafic     # ~1 h (2,2 millions de lignes par mois)
 ```
 
 Ensuite, exécutez les notebooks dans l'ordre (`01` à `04`).
@@ -55,7 +58,18 @@ reports/      rapport et figures
 
 ## Sources de données
 
-À compléter avec les liens et les licences : Airparif Open Data, comptages routiers de la Ville de Paris, Open-Meteo.
+| Source | Contenu | Accès | Licence | Fichiers bruts |
+|---|---|---|---|---|
+| [Mesures horaires LCSQA / Geod'air](https://www.data.gouv.fr/datasets/5b98b648634f415309d52a50) | Concentrations horaires des stations Airparif (NO₂, PM₂.₅, PM₁₀, O₃…), en UTC, avec indicateurs de validité ; métadonnées des stations (« Dataset D ») | Un CSV national par jour, depuis 2021 | Licence Ouverte 2.0 | `data/raw/airparif/mesures_AAAA-MM-JJ.csv`, `stations_dataset_D.xls` |
+| [Comptages routiers permanents](https://opendata.paris.fr/explore/dataset/comptages-routiers-permanents/) et [référentiel](https://opendata.paris.fr/explore/dataset/referentiel-comptages-routiers/), Ville de Paris | Débit (`q`, véhicules/h) et taux d'occupation (`k`, %) par arc (`iu_ac`) | API Opendatasoft, 13 derniers mois | ODbL | `data/raw/trafic/comptages_<début>_<fin>.parquet`, `referentiel_arcs.json` |
+| [Open-Meteo Historical Weather](https://open-meteo.com/en/docs/historical-weather-api) | Température, humidité, pluie, pression, vent (m/s, direction) | API REST sans clé | CC BY 4.0 | `data/raw/meteo/meteo_<début>_<fin>.json` |
+
+Pourquoi pas le WFS Airparif (projet DIDON) ? Ses couches de mesures ne gardent que les dernières 24 heures (elles étaient vides lors du test du 2026-10-18). Les fichiers du LCSQA reprennent les mêmes mesures Airparif avec tout l'historique. Les stations Airparif y sont repérées par l'organisme `AIRPARIF` et des codes `FR04xxx`.
+
+Conventions à traiter au nettoyage :
+- Airparif (LCSQA) : heures en UTC, horodatage en **début** de période (`Date de début`).
+- Trafic : demandé en UTC (`timezone=UTC`), mais `t_1h` marque la **fin** de la période de comptage.
+- Météo : demandée en UTC, valeur instantanée à l'heure pile (cumul sur l'heure précédente pour la pluie).
 
 ## Contribuer (équipe)
 

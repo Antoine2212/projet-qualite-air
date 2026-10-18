@@ -14,6 +14,7 @@ dependencies = [
     "requests>=2.34.2",
     "scikit-learn>=1.9.1",
     "seaborn>=0.13.2",
+    "xlrd>=2.0.2",
 ]
 
 [dependency-groups]
