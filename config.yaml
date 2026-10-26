@@ -1,0 +1,21 @@
+# Paramètres du projet (lus avec yaml.safe_load)
+
+# Période provisoire : mois entiers disponibles dans l'API trafic (13 mois glissants)
+periode:
+  debut: "2025-10-01"
+  fin: "2026-09-30"
+
+chemins:
+  raw: "data/raw"
+
+trafic:
+  url_base: "https://opendata.paris.fr/api/explore/v2.1/catalog/datasets"
+  dataset: "comptages-routiers-permanents"
+  dataset_referentiel: "referentiel-comptages-routiers"
+  # colonnes gardées à l'export (la géométrie est dans le référentiel, jointure par iu_ac)
+  colonnes: ["iu_ac", "t_1h", "q", "k", "etat_trafic", "etat_barre"]
+  timeout_connexion: 30      # secondes
+  timeout_lecture: 900       # l'export d'un mois est généré côté serveur
+  tentatives: 5
+  pause_retry: 10            # secondes, doublée à chaque nouvel essai
+  pause_entre_appels: 2      # secondes
