@@ -7,6 +7,7 @@ periode:
 
 chemins:
   raw: "data/raw"
+  interim: "data/interim"
 
 trafic:
   url_base: "https://opendata.paris.fr/api/explore/v2.1/catalog/datasets"
@@ -19,3 +20,6 @@ trafic:
   tentatives: 5
   pause_retry: 10            # secondes, doublée à chaque nouvel essai
   pause_entre_appels: 2      # secondes
+  # nettoyage
+  part_sans_debit_max: 0.30  # un arc est gardé s'il a un débit pour au moins 70 % des heures
+  zeros_consecutifs_max: 24  # au-delà de 24 h de suite à zéro, on considère le capteur en panne
