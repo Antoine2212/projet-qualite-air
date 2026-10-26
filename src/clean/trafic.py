@@ -7,7 +7,10 @@
 4. retirer les arcs sans géométrie ;
 5. mettre à NaN les longues séries de zéros (pannes) ;
 6. garder les arcs qui ont un débit pour assez d'heures (seuil dans config.yaml) ;
-7. compléter la grille : une ligne par arc et par heure, NaN si l'heure manque.
+7. compléter la grille : une ligne par arc et par heure, NaN si l'heure manque ;
+8. ajouter à chaque ligne le libellé, la longueur et le centroïde de l'arc.
+
+Sortie : un seul fichier, data/interim/trafic.parquet.
 
 Usage : uv run python -m src.clean.trafic
 """
@@ -50,7 +53,7 @@ def dedoublonner_referentiel(ref: pd.DataFrame) -> gpd.GeoDataFrame:
     """Garde une version par arc (date_fin puis date_debut la plus récente), en Lambert-93."""
     ref = ref.sort_values(["iu_ac", "date_fin", "date_debut"], kind="stable")
     unique = ref.drop_duplicates("iu_ac", keep="last")
-    logger.info("référentiel : %d lignes, %d versions anciennes retirées", len(ref), len(ref) - len(unique))
+    logger.info("référentiel : %d lignes initialement, %d versions anciennes retirées", len(ref), len(ref) - len(unique))
     colonnes = ["iu_ac", "libelle", "libelle_nd_amont", "libelle_nd_aval"]
     geometrie = gpd.GeoSeries.from_wkb(unique["geo_shape"], crs=4326).to_crs(2154)
     return gpd.GeoDataFrame(unique[colonnes], geometry=geometrie)
@@ -122,8 +125,24 @@ def completer_grille(trafic: pd.DataFrame) -> pd.DataFrame:
     return complet
 
 
+def ajouter_infos_arcs(trafic: pd.DataFrame, arcs: gpd.GeoDataFrame) -> pd.DataFrame:
+    """Ajoute à chaque ligne le libellé, la longueur et le centroïde de son arc.
+
+    Longueur et centroïde sont en mètres, en Lambert-93 (EPSG:2154).
+    """
+    infos = pd.DataFrame({
+        "iu_ac": arcs["iu_ac"],
+        "libelle": arcs["libelle"],
+        "longueur_m": arcs.length,
+        "x_centroide": arcs.centroid.x,
+        "y_centroide": arcs.centroid.y,
+    })
+    # validate : chaque arc n'a qu'une ligne dans infos, la fusion ne duplique donc aucune ligne
+    return trafic.merge(infos, on="iu_ac", how="left", validate="many_to_one")
+
+
 def main() -> None:
-    """Nettoie le trafic et écrit trafic.parquet et arcs_trafic.parquet dans data/interim/."""
+    """Nettoie le trafic et écrit le résultat dans data/interim/trafic.parquet."""
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     cfg = lire_config()
     cfg_t = cfg["trafic"]
@@ -138,10 +157,10 @@ def main() -> None:
         trafic = retirer_longues_series_de_zeros(trafic, colonne, cfg_t["zeros_consecutifs_max"])
     trafic = garder_arcs_mesures(trafic, cfg_t["part_sans_debit_max"])
     trafic = completer_grille(trafic)
+    trafic = ajouter_infos_arcs(trafic, arcs)
 
     trafic.to_parquet(sortie / "trafic.parquet", index=False)
-    arcs[arcs["iu_ac"].isin(trafic["iu_ac"])].to_parquet(sortie / "arcs_trafic.parquet", index=False)
-    logger.info("écrit dans %s", sortie)
+    logger.info("écrit dans %s : %d lignes, colonnes %s", sortie / "trafic.parquet", len(trafic), list(trafic.columns))
 
 
 if __name__ == "__main__":
