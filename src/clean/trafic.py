@@ -10,7 +10,10 @@
 7. compléter la grille : une ligne par arc et par heure, NaN si l'heure manque ;
 8. ajouter à chaque ligne le libellé, la longueur et le centroïde de l'arc.
 
-Sortie : un seul fichier, data/interim/trafic.parquet.
+Sorties dans data/interim/ :
+- trafic.parquet : une ligne par arc et par heure, sans géométrie (le fichier à utiliser) ;
+- referentiel_nettoye.parquet : une ligne par arc gardé, avec le tracé et les nœuds amont / aval,
+  déjà dédoublonné. Pour les cartes : trafic.merge(referentiel, on="iu_ac").
 
 Usage : uv run python -m src.clean.trafic
 """
@@ -54,7 +57,7 @@ def dedoublonner_referentiel(ref: pd.DataFrame) -> gpd.GeoDataFrame:
     ref = ref.sort_values(["iu_ac", "date_fin", "date_debut"], kind="stable")
     unique = ref.drop_duplicates("iu_ac", keep="last")
     logger.info("référentiel : %d lignes initialement, %d versions anciennes retirées", len(ref), len(ref) - len(unique))
-    colonnes = ["iu_ac", "libelle", "libelle_nd_amont", "libelle_nd_aval"]
+    colonnes = ["iu_ac", "libelle", "iu_nd_amont", "libelle_nd_amont", "iu_nd_aval", "libelle_nd_aval"]
     geometrie = gpd.GeoSeries.from_wkb(unique["geo_shape"], crs=4326).to_crs(2154)
     return gpd.GeoDataFrame(unique[colonnes], geometry=geometrie)
 
@@ -141,13 +144,21 @@ def ajouter_infos_arcs(trafic: pd.DataFrame, arcs: gpd.GeoDataFrame) -> pd.DataF
     return trafic.merge(infos, on="iu_ac", how="left", validate="many_to_one")
 
 
+def enregistrer(trafic: pd.DataFrame, arcs: gpd.GeoDataFrame, dossier: Path) -> None:
+    """Écrit trafic.parquet et referentiel_nettoye.parquet (arcs gardés seulement) dans `dossier`."""
+    dossier.mkdir(parents=True, exist_ok=True)
+    trafic.to_parquet(dossier / "trafic.parquet", index=False)
+    logger.info("trafic.parquet : %d lignes, colonnes %s", len(trafic), list(trafic.columns))
+    gardes = arcs[arcs["iu_ac"].isin(trafic["iu_ac"])]
+    gardes.to_parquet(dossier / "referentiel_nettoye.parquet", index=False)
+    logger.info("referentiel_nettoye.parquet : %d arcs, colonnes %s", len(gardes), list(gardes.columns))
+
+
 def main() -> None:
-    """Nettoie le trafic et écrit le résultat dans data/interim/trafic.parquet."""
+    """Nettoie le trafic et écrit les deux fichiers de sortie dans data/interim/."""
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     cfg = lire_config()
     cfg_t = cfg["trafic"]
-    sortie = RACINE / cfg["chemins"]["interim"]
-    sortie.mkdir(parents=True, exist_ok=True)
 
     trafic, ref = charger_brut(RACINE / cfg["chemins"]["raw"] / "trafic")
     trafic = preparer(trafic)
@@ -158,9 +169,7 @@ def main() -> None:
     trafic = garder_arcs_mesures(trafic, cfg_t["part_sans_debit_max"])
     trafic = completer_grille(trafic)
     trafic = ajouter_infos_arcs(trafic, arcs)
-
-    trafic.to_parquet(sortie / "trafic.parquet", index=False)
-    logger.info("écrit dans %s : %d lignes, colonnes %s", sortie / "trafic.parquet", len(trafic), list(trafic.columns))
+    enregistrer(trafic, arcs, RACINE / cfg["chemins"]["interim"])
 
 
 if __name__ == "__main__":
