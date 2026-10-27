@@ -65,7 +65,8 @@ uv run python -m src.clean.airparif     # nettoyage, écrit data/interim/airpari
 
 **Identifiants SSP Cloud.** Dans un service SSP Cloud, ils sont injectés automatiquement.
 Ailleurs, copier `.env.example` en `.env` et le remplir depuis
-[Mon compte → Connexion au stockage](https://datalab.sspcloud.fr/account/storage) ; ils expirent au bout de 7 jours.
+[Stockage de données](https://datalab.sspcloud.fr/s3) (détail du profil S3, section « Identifiants d'accès ») ;
+ils expirent au bout de 7 jours.
 `.env` est ignoré par Git : aucun identifiant ne doit être commité.
 
 Le notebook `qualite_air.ipynb` récupère les données brutes depuis SSP Cloud, refait le nettoyage

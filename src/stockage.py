@@ -9,7 +9,8 @@ Seuls les fichiers absents ou de taille différente sont copiés : on peut relan
 Identifiants : jamais dans le code ni dans Git. Ils viennent des variables d'environnement
 AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_SESSION_TOKEN et AWS_S3_ENDPOINT,
 injectées automatiquement dans les services SSP Cloud. Sur un autre ordinateur, les copier
-depuis https://datalab.sspcloud.fr/account/storage dans un fichier .env (voir .env.example).
+depuis https://datalab.sspcloud.fr/s3 (menu « Stockage de données », détail du profil S3)
+dans un fichier .env (voir .env.example).
 Ils expirent au bout de 7 jours.
 
 Lancement :
@@ -41,7 +42,7 @@ def connecter() -> s3fs.S3FileSystem:
     if manquantes:
         raise RuntimeError(
             f"Identifiants SSP Cloud absents ({', '.join(manquantes)}). Lance le script depuis un "
-            "service SSP Cloud, ou copie-les depuis https://datalab.sspcloud.fr/account/storage "
+            "service SSP Cloud, ou copie-les depuis https://datalab.sspcloud.fr/s3 (détail du profil S3) "
             "dans un fichier .env à la racine du projet."
         )
     # s3fs lit lui-même les clés dans l'environnement ; il ne lui manque que l'adresse du serveur.
