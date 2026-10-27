@@ -1,4 +1,4 @@
-"""Nettoyage du trafic routier de Paris (sortie : data/interim/).
+"""Nettoyage du trafic routier de Paris (sortie : data/interim/trafic/).
 
 Étapes, dans l'ordre de main() :
 1. concaténer les fichiers mensuels bruts ;
@@ -10,7 +10,7 @@
 7. compléter la grille : une ligne par arc et par heure, NaN si l'heure manque ;
 8. ajouter à chaque ligne le libellé, la longueur et le centroïde de l'arc.
 
-Sorties dans data/interim/ :
+Sorties dans data/interim/trafic/ :
 - trafic.parquet : une ligne par arc et par heure, sans géométrie (le fichier à utiliser) ;
 - referentiel_nettoye.parquet : une ligne par arc gardé, avec le tracé et les nœuds amont / aval,
   déjà dédoublonné. Pour les cartes : trafic.merge(referentiel, on="iu_ac").
@@ -155,7 +155,7 @@ def enregistrer(trafic: pd.DataFrame, arcs: gpd.GeoDataFrame, dossier: Path) -> 
 
 
 def main() -> None:
-    """Nettoie le trafic et écrit les deux fichiers de sortie dans data/interim/."""
+    """Nettoie le trafic et écrit les deux fichiers de sortie dans data/interim/trafic/."""
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     cfg = lire_config()
     cfg_t = cfg["trafic"]
@@ -169,7 +169,7 @@ def main() -> None:
     trafic = garder_arcs_mesures(trafic, cfg_t["part_sans_debit_max"])
     trafic = completer_grille(trafic)
     trafic = ajouter_infos_arcs(trafic, arcs)
-    enregistrer(trafic, arcs, RACINE / cfg["chemins"]["interim"])
+    enregistrer(trafic, arcs, RACINE / cfg["chemins"]["interim"] / "trafic")
 
 
 if __name__ == "__main__":

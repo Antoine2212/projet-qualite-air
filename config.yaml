@@ -1,5 +1,3 @@
-# Paramètres du projet (lus avec yaml.safe_load)
-
 # Période provisoire : mois entiers disponibles dans l'API trafic (13 mois glissants)
 periode:
   debut: "2025-11-01"
@@ -77,6 +75,10 @@ airparif:
 # les données ici. Les identifiants ne sont jamais écrits dans ce fichier : ils viennent
 # des variables d'environnement (injectées dans les services SSP Cloud, ou lues dans .env).
 stockage:
-  bucket: mathismarsoin                 # identifiant SSP Cloud de Mathis (nom de son espace)
-  dossier: diffusion/projet-qualite-air # « diffusion » : lisible par tous, modifiable par toi seul
+  dossier: diffusion/projet-qualite-air # « diffusion » : lisible par tous, modifiable par son propriétaire seul
   etapes: [raw, interim, processed]     # sous-dossiers de data/ synchronisés
+  # Espace SSP Cloud (identifiant de son propriétaire) où chaque dataset est rangé :
+  # chacun ne peut écrire que dans le sien. Les fichiers locaux sont dans data/<étape>/<dataset>/.
+  buckets:
+    airparif: mathismarsoin
+    trafic: adefirmas
