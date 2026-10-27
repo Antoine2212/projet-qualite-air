@@ -60,6 +60,6 @@ airparif:
 # les données ici. Les identifiants ne sont jamais écrits dans ce fichier : ils viennent
 # des variables d'environnement (injectées dans les services SSP Cloud, ou lues dans .env).
 stockage:
-  bucket: ""                            # ton identifiant SSP Cloud (nom de ton espace)
+  bucket: mathismarsoin                 # identifiant SSP Cloud de Mathis (nom de son espace)
   dossier: diffusion/projet-qualite-air # « diffusion » : lisible par tous, modifiable par toi seul
   etapes: [raw, interim, processed]     # sous-dossiers de data/ synchronisés
