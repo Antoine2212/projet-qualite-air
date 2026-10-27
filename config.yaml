@@ -2,12 +2,9 @@
 
 # Période provisoire : mois entiers disponibles dans l'API trafic (13 mois glissants)
 periode:
-  debut: "2025-10-01"
+  debut: "2025-11-01"
   fin: "2026-09-30"
 
-chemins:
-  raw: "data/raw"
-  interim: "data/interim"
 
 trafic:
   url_base: "https://opendata.paris.fr/api/explore/v2.1/catalog/datasets"
@@ -23,3 +20,63 @@ trafic:
   # nettoyage
   part_sans_debit_max: 0.30  # un arc est gardé s'il a un débit pour au moins 70 % des heures
   zeros_consecutifs_max: 24  # au-delà de 24 h de suite à zéro, on considère le capteur en panne
+# Paramètres du projet. Aucun de ces réglages ne doit être écrit en dur dans le code.
+
+
+
+chemins:
+  raw: data/raw
+  interim: data/interim
+  processed: data/processed
+
+# Comportement réseau commun à toutes les extractions.
+api:
+  timeout_s: 300        # délai maximal d'une requête
+  max_essais: 5         # nombre de tentatives avant abandon
+  pause_essai_s: 2      # pause après le 1er échec, doublée à chaque essai
+  pause_appels_s: 1     # pause entre deux appels réussis
+
+# Mesures horaires des stations Airparif.
+# Le flux WFS d'Airparif (projet DIDON) ne garde que les dernières 24 h (vide lors des
+# tests des 18 et 25 octobre 2026) : l'historique vient des fichiers horaires nationaux
+# du LCSQA (Geod'air), qui reprennent les mesures Airparif en UTC avec leur validité.
+airparif:
+  url_mesures: https://files.data.gouv.fr/ineris/lcsqa/concentrations-de-polluants-atmospheriques-reglementes/temps-reel
+  # Jeu data.gouv.fr qui contient le fichier des stations (« Dataset D »).
+  url_dataset: https://www.data.gouv.fr/api/1/datasets/5b98b648634f415309d52a50/
+  organisme: AIRPARIF
+  # Polluants gardés au nettoyage, avec le nom de colonne en snake_case.
+  # Noms entre guillemets : sans eux, YAML lit NO comme le booléen « non ».
+  polluants:
+    "NO2": "no2"
+    "PM2.5": "pm25"
+    "PM10": "pm10"
+    "O3": "o3"
+    "NO": "no"
+    "NOX as NO2": "nox"
+  stations: []          # codes à garder, par exemple [FR04131, FR04055] ; vide = toutes
+
+  nettoyage:
+    # Polluants pour lesquels une valeur nulle est plausible (l'ozone tombe à 0 la nuit
+    # près des axes) : ailleurs, 0 µg/m³ est traité comme une valeur fausse.
+    zero_plausible: ["O3", "NO"]
+    # Capteur figé : même valeur exacte pendant au moins ce nombre d'heures d'affilée,
+    # au-dessus du plancher (sous 5 µg/m³, une valeur stable la nuit est plausible :
+    # les mesures sont arrondies à 0,1 près).
+    heures_figees_min: 6
+    figee_plancher_ugm3: 5
+    # Pic isolé : valeur > facteur × médiane glissante sur 24 h, et au-dessus du plancher.
+    pic_facteur: 5
+    pic_plancher_ugm3: 50
+    # Trou court : au plus ce nombre d'heures manquantes d'affilée (au-delà : panne longue).
+    trou_court_max_h: 6
+    # Série signalée (pas supprimée) si moins de cette part des heures a une valeur.
+    couverture_min: 0.5
+
+# Stockage des données sur SSP Cloud (MinIO, compatible S3). Le code est sur GitHub,
+# les données ici. Les identifiants ne sont jamais écrits dans ce fichier : ils viennent
+# des variables d'environnement (injectées dans les services SSP Cloud, ou lues dans .env).
+stockage:
+  bucket: mathismarsoin                 # identifiant SSP Cloud de Mathis (nom de son espace)
+  dossier: diffusion/projet-qualite-air # « diffusion » : lisible par tous, modifiable par toi seul
+  etapes: [raw, interim, processed]     # sous-dossiers de data/ synchronisés
