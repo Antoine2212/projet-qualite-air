@@ -15,7 +15,7 @@ Projet Python, ENSAE 2026-2027.
 ### Récupérer le projet
 
 ```bash
-git clone https://github.com/[compte]/projet-qualite-air.git
+git clone https://github.com/Antoine2212/projet-qualite-air.git
 cd projet-qualite-air
 uv sync
 ```
