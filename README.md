@@ -55,12 +55,23 @@ tout le monde, correcteur compris, travaille sur les mêmes données.
 La période, les seuils et l'emplacement du stockage se règlent dans `config.yaml`. Les scripts
 gardent en cache ce qu'ils ont déjà copié ou téléchargé : on peut les relancer sans risque.
 
+Chaque dataset est rangé dans l'espace SSP Cloud de la personne qui l'a extrait
+(`stockage.buckets` dans `config.yaml`) : seule elle peut l'envoyer, tout le monde peut le récupérer.
+
 ```bash
+uv run python -m src.stockage recuperer   # récupère tous les datasets depuis SSP Cloud
+
 # Qualité de l'air (Airparif)
-uv run python -m src.extract.airparif   # extraction depuis la source, ~45 min la première fois
-uv run python -m src.stockage envoyer   # fige data/ sur SSP Cloud (une fois, par la personne qui extrait)
-uv run python -m src.stockage recuperer # récupère data/ depuis SSP Cloud (tous les autres)
-uv run python -m src.clean.airparif     # nettoyage, écrit data/interim/airparif/
+uv run python -m src.extract.airparif                     # extraction depuis la source, ~45 min la première fois
+uv run python -m src.stockage envoyer --dataset airparif  # fige data/ sur SSP Cloud (Mathis)
+uv run python -m src.stockage recuperer --dataset airparif
+uv run python -m src.clean.airparif                       # nettoyage, écrit data/interim/airparif/
+
+# Trafic routier (Ville de Paris)
+uv run python -m src.extract.trafic                       # extraction depuis la source, ~1 h la première fois
+uv run python -m src.stockage envoyer --dataset trafic    # fige data/ sur SSP Cloud (Antoine)
+uv run python -m src.stockage recuperer --dataset trafic
+uv run python -m src.clean.trafic                         # nettoyage, écrit data/interim/trafic/
 ```
 
 **Identifiants SSP Cloud.** Dans un service SSP Cloud, ils sont injectés automatiquement.
