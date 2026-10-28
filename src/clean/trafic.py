@@ -2,7 +2,8 @@
 
 Étapes, dans l'ordre de main() :
 1. concaténer les fichiers mensuels bruts ;
-2. passer de la convention « fin de période » à « début de période » ;
+2. passer de la convention « fin de période » à « début de période » et ne garder
+   que les heures de la période de config.yaml ;
 3. garder une seule version de chaque arc dans le référentiel (date_fin la plus récente) ;
 4. retirer les arcs sans géométrie ;
 5. mettre à NaN les longues séries de zéros (pannes) ;
@@ -38,18 +39,24 @@ def charger_brut(dossier: Path) -> tuple[pd.DataFrame, pd.DataFrame]:
     return trafic, ref
 
 
-def preparer(trafic: pd.DataFrame) -> pd.DataFrame:
-    """Garde iu_ac, q et k, et remplace t_1h (fin de période) par heure (début de période).
+def preparer(trafic: pd.DataFrame, heures: pd.DatetimeIndex) -> pd.DataFrame:
+    """Garde iu_ac, q et k, remplace t_1h (fin de période) par heure (début de période)
+    et retire les lignes hors de `heures`.
 
     etat_trafic est déduit de k et etat_barre = Invalide correspond toujours à q et k
-    manquants : ces deux colonnes n'apportent rien de plus.
+    manquants : ces deux colonnes n'apportent rien de plus. Les fichiers bruts ne
+    contiennent normalement que des heures de la période : le filtre ne sert que si
+    d'anciens fichiers, découpés autrement, sont restés dans data/raw/trafic/.
     """
-    return pd.DataFrame({
+    trafic = pd.DataFrame({
         "iu_ac": trafic["iu_ac"],
         "heure": trafic["t_1h"] - pd.Timedelta(hours=1),
         "q": trafic["q"],
         "k": trafic["k"],
     })
+    dans_periode = trafic["heure"].between(heures[0], heures[-1])
+    logger.info("heures hors de la période : %d lignes retirées", (~dans_periode).sum())
+    return trafic[dans_periode]
 
 
 def dedoublonner_referentiel(ref: pd.DataFrame) -> gpd.GeoDataFrame:
@@ -70,23 +77,26 @@ def retirer_arcs_sans_geo(trafic: pd.DataFrame, arcs: gpd.GeoDataFrame) -> pd.Da
     return trafic[garde]
 
 
-def toutes_les_heures(trafic: pd.DataFrame) -> pd.DatetimeIndex:
-    """Toutes les heures entre la première et la dernière heure du trafic."""
-    return pd.date_range(trafic["heure"].min(), trafic["heure"].max(), freq="h")
+def toutes_les_heures(periode: dict[str, str]) -> pd.DatetimeIndex:
+    """Heures (début de période, UTC) du premier jour à 00:00 au dernier jour à 23:00 inclus.
+
+    `periode` est la section `periode` de config.yaml (dates AAAA-MM-JJ).
+    """
+    fin = pd.Timestamp(periode["fin"]) + pd.Timedelta(days=1)
+    return pd.date_range(periode["debut"], fin, freq="h", inclusive="left", tz="UTC")
 
 
-def part_heures_sans_debit(trafic: pd.DataFrame) -> pd.Series:
+def part_heures_sans_debit(trafic: pd.DataFrame, heures: pd.DatetimeIndex) -> pd.Series:
     """Part des heures de la période sans débit, pour chaque arc.
 
     Une heure absente du fichier compte comme une heure sans débit.
     """
-    n_heures = len(toutes_les_heures(trafic))
-    return 1 - trafic.groupby("iu_ac")["q"].count() / n_heures
+    return 1 - trafic.groupby("iu_ac")["q"].count() / len(heures)
 
 
-def garder_arcs_mesures(trafic: pd.DataFrame, part_max: float) -> pd.DataFrame:
+def garder_arcs_mesures(trafic: pd.DataFrame, part_max: float, heures: pd.DatetimeIndex) -> pd.DataFrame:
     """Garde les arcs dont la part d'heures sans débit est inférieure à `part_max`."""
-    part = part_heures_sans_debit(trafic)
+    part = part_heures_sans_debit(trafic, heures)
     gardes = part.index[part <= part_max]
     logger.info("arcs avec plus de %.0f %% d'heures sans débit : %d retirés, %d gardés",
                 part_max * 100, len(part) - len(gardes), len(gardes))
@@ -116,9 +126,9 @@ def retirer_longues_series_de_zeros(trafic: pd.DataFrame, colonne: str, seuil: i
     return trafic
 
 
-def completer_grille(trafic: pd.DataFrame) -> pd.DataFrame:
-    """Une ligne par arc et par heure ; les heures absentes sont ajoutées avec q et k à NaN."""
-    grille = pd.MultiIndex.from_product([sorted(trafic["iu_ac"].unique()), toutes_les_heures(trafic)],
+def completer_grille(trafic: pd.DataFrame, heures: pd.DatetimeIndex) -> pd.DataFrame:
+    """Une ligne par arc et par heure de `heures` ; les heures absentes sont ajoutées avec q et k à NaN."""
+    grille = pd.MultiIndex.from_product([sorted(trafic["iu_ac"].unique()), heures],
                                         names=["iu_ac", "heure"])
     # from_product fait un produit cartésien 
     complet = trafic.set_index(["iu_ac", "heure"]).reindex(grille).reset_index()
@@ -160,14 +170,15 @@ def main() -> None:
     cfg = lire_config()
     cfg_t = cfg["trafic"]
 
+    heures = toutes_les_heures(cfg["periode"])
     trafic, ref = charger_brut(RACINE / cfg["chemins"]["raw"] / "trafic")
-    trafic = preparer(trafic)
+    trafic = preparer(trafic, heures)
     arcs = dedoublonner_referentiel(ref)
     trafic = retirer_arcs_sans_geo(trafic, arcs)
     for colonne in ["q", "k"]:
         trafic = retirer_longues_series_de_zeros(trafic, colonne, cfg_t["zeros_consecutifs_max"])
-    trafic = garder_arcs_mesures(trafic, cfg_t["part_sans_debit_max"])
-    trafic = completer_grille(trafic)
+    trafic = garder_arcs_mesures(trafic, cfg_t["part_sans_debit_max"], heures)
+    trafic = completer_grille(trafic, heures)
     trafic = ajouter_infos_arcs(trafic, arcs)
     enregistrer(trafic, arcs, RACINE / cfg["chemins"]["interim"] / "trafic")
 

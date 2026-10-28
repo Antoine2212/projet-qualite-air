@@ -4,9 +4,10 @@ Le jeu ne garde que 13 mois glissants. Un mois = environ 2 millions de lignes,
 trop pour l'endpoint `records` (offset + limit <= 10 000) : on utilise l'endpoint
 `exports`, un fichier Parquet par mois, sauvegardé brut dans data/raw/trafic/.
 
-Attention : `t_1h` est en UTC et marque la FIN de la période d'une heure. Les
-fichiers mensuels sont découpés sur cette colonne ; le décalage d'une heure se
-fait au nettoyage, après avoir concaténé tous les mois.
+Attention : `t_1h` est en UTC et marque la FIN de la période d'une heure. Le
+fichier d'un mois contient donc t_1h du 1er à 01:00 au 1er du mois suivant à
+00:00 inclus, soit exactement les heures qui commencent dans le mois. Le
+décalage d'une heure (début de période) se fait au nettoyage.
 
 Usage en script : uv run python -m src.extract.trafic [AAAA-MM]
 Usage en notebook : from src.extract.trafic import main ; main()
@@ -82,9 +83,14 @@ def get_trafic_mois(cfg: Config, mois: pd.Timestamp, dossier: Path) -> Path:
 
     cfg_t = cfg["trafic"]
     suivant = mois + pd.offsets.MonthBegin(1)
+    # t_1h marque la fin de l'heure : l'heure de 00:00 à 01:00 le 1er du mois a t_1h = 01:00,
+    # d'où « > » au début, et la dernière heure du mois (23:00 à 00:00) a t_1h = 1er du mois
+    # suivant à 00:00, d'où « <= » à la fin.
+    # L'heure doit être écrite en entier : avec date'AAAA-MM-JJ' seul, l'API compare au jour
+    # près (« <= date'2026-10-01' » garderait toute la journée du 1er octobre).
     params = {
         "select": ",".join(cfg_t["colonnes"]),
-        "where": f"t_1h >= date'{mois:%Y-%m-%d}' and t_1h < date'{suivant:%Y-%m-%d}'",
+        "where": f"t_1h > date'{mois:%Y-%m-%d}T00:00:00Z' and t_1h <= date'{suivant:%Y-%m-%d}T00:00:00Z'",
     }
     url = f"{cfg_t['url_base']}/{cfg_t['dataset']}/exports/parquet"
 
