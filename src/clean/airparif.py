@@ -20,6 +20,7 @@ import logging
 
 import pandas as pd
 
+from src import stockage
 from src.extract import airparif as extraction
 from src.utils import charger_config, configurer_logs, dossier
 
@@ -336,6 +337,17 @@ def charger(config: dict) -> dict[str, pd.DataFrame]:
     sortie = dossier(config, "interim", "airparif")
     tables = {nom: pd.read_parquet(sortie / f"{nom}.parquet") for nom in TABLES}
     tables["decisions"] = pd.read_csv(sortie / "decisions.csv")
+    return tables
+
+
+def charger_depuis_ssp_cloud(config: dict) -> dict[str, pd.DataFrame]:
+    """Lit les tables nettoyées figées sur SSP Cloud, sans rien télécharger ni recalculer.
+
+    Mêmes tables que charger(). Elles ont été produites par nettoyer() sur la période de
+    config.yaml, puis envoyées avec `python -m src.stockage envoyer --dataset airparif`.
+    """
+    tables = {nom: stockage.lire(config, "airparif", f"interim/airparif/{nom}.parquet") for nom in TABLES}
+    tables["decisions"] = stockage.lire(config, "airparif", "interim/airparif/decisions.csv")
     return tables
 
 
