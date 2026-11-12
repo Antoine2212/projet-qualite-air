@@ -76,6 +76,8 @@ airparif:
 # des variables d'environnement (injectées dans les services SSP Cloud, ou lues dans .env).
 stockage:
   dossier: diffusion/projet-qualite-air # « diffusion » : lisible par tous, modifiable par son propriétaire seul
+  # Adresse publique du stockage : un dossier rendu public se lit par HTTPS, sans identifiants.
+  url_publique: https://minio.lab.sspcloud.fr
   etapes: [raw, interim, processed]     # sous-dossiers de data/ synchronisés
   # Espace SSP Cloud (identifiant de son propriétaire) où chaque dataset est rangé :
   # chacun ne peut écrire que dans le sien. Les fichiers locaux sont dans data/<étape>/<dataset>/.

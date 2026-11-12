@@ -80,8 +80,9 @@ Ailleurs, copier `.env.example` en `.env` et le remplir depuis
 ils expirent au bout de 7 jours.
 `.env` est ignoré par Git : aucun identifiant ne doit être commité.
 
-Le notebook `qualite_air.ipynb` récupère les données brutes depuis SSP Cloud, refait le nettoyage
-et montre les contrôles. Il tourne de haut en bas (« Run All ») sans relancer l'extraction.
+Le notebook du projet, `project.ipynb`, récupère les données brutes de chaque dataset depuis SSP Cloud
+et refait leur nettoyage. Il tourne de haut en bas (« Run All ») sans relancer les extractions.
+Les contrôles détaillés de l'extraction de la qualité de l'air sont dans `notebooks/qualite_air.ipynb`.
 
 Ensuite, exécutez les notebooks dans l'ordre (`01` à `04`).
 
