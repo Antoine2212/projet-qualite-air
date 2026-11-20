@@ -101,9 +101,22 @@ def extraire(config: dict) -> None:
 
 
 def charger_brut(config: dict) -> pd.DataFrame:
-    """Relit tous les CSV bruts en une seule table, sans conversion de type."""
-    fichiers = sorted(dossier(config, "raw", "airparif").glob("mesures_*.csv"))
-    return pd.concat((pd.read_csv(f, sep=";", dtype=str) for f in fichiers), ignore_index=True)
+    """Relit les CSV bruts des jours de la période en une seule table, sans conversion de type.
+
+    Le dossier peut contenir des jours hors période (extraction plus large) : ils sont ignorés.
+    """
+    rep = dossier(config, "raw", "airparif")
+    fichiers = [rep / f"mesures_{jour}.csv" for jour in jours_de_la_periode(config)]
+    manquants = [f.name for f in fichiers if not f.exists()]
+    if len(manquants) == len(fichiers):
+        raise FileNotFoundError(
+            f"Aucun fichier brut de la période dans {rep} : lancer stockage.recuperer ou l'extraction"
+        )
+    if manquants:
+        log.warning("%d jour(s) de la période sans fichier brut : %s", len(manquants), ", ".join(manquants))
+    return pd.concat(
+        (pd.read_csv(f, sep=";", dtype=str) for f in fichiers if f.exists()), ignore_index=True
+    )
 
 
 def charger_stations(config: dict) -> pd.DataFrame:

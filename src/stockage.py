@@ -5,6 +5,7 @@ rangé dans l'espace de la personne qui l'a extrait, car chacun ne peut écrire 
 (voir stockage.buckets dans config.yaml) :
 - envoyer   : copie data/<étape>/<dataset>/ vers s3://<bucket du dataset>/<dossier>/<étape>/<dataset>/
 - recuperer : copie dans l'autre sens, pour qui n'a pas relancé l'extraction
+- lire      : lit un fichier directement sur SSP Cloud (dossier public), sans identifiants
 
 Seuls les fichiers absents ou de taille différente sont copiés : on peut relancer sans risque.
 
@@ -26,6 +27,7 @@ import logging
 import os
 import time
 
+import pandas as pd
 import s3fs
 from dotenv import load_dotenv
 from tqdm.auto import tqdm
@@ -57,6 +59,20 @@ def racine_distante(config: dict, dataset: str) -> str:
     if dataset not in buckets:
         raise ValueError(f"Dataset inconnu : {dataset}. Datasets dans config.yaml : {', '.join(buckets)}")
     return f"{buckets[dataset]}/{config['stockage']['dossier']}"
+
+
+def lire(config: dict, dataset: str, chemin: str) -> pd.DataFrame:
+    """Lit un fichier du dataset directement sur SSP Cloud, sans le copier dans data/.
+
+    chemin est relatif à data/, par exemple "interim/airparif/mesures.parquet". Le dossier doit
+    être public (lisible sans identifiants) : la lecture passe par l'adresse HTTPS du stockage.
+    """
+    url = f"{config['stockage']['url_publique']}/{racine_distante(config, dataset)}/{chemin}"
+    if chemin.endswith(".parquet"):
+        return pd.read_parquet(url)
+    if chemin.endswith(".csv"):
+        return pd.read_csv(url)
+    raise ValueError(f"Format non pris en charge : {chemin} (parquet ou csv)")
 
 
 def fichiers_locaux(config: dict, dataset: str) -> dict[str, int]:
