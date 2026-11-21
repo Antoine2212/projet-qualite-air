@@ -25,8 +25,7 @@ import yaml
 
 logger = logging.getLogger(__name__)
 
-# Racine du dépôt (ce fichier est dans src/extract/) : les chemins ne dépendent
-# plus du dossier depuis lequel on lance le script ou le notebook.
+# Racine du dépôt (ce fichier est dans src/extract/) : les chemins ne dépendent plus du dossier depuis lequel on lance le script ou le notebook.
 RACINE = Path(__file__).resolve().parents[2]
 
 # La config est un dictionnaire imbriqué : cfg["trafic"]["dataset"], etc.

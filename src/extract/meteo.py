@@ -13,7 +13,7 @@ def meteo_dataset_extraction():
     LONGITUDE = 2.3522
 
     #Dossier des données brutes
-    DATA_DIR = Path(__file__).resolve().parent.parent / "data" / "raw"
+    DATA_DIR = Path(__file__).resolve().parents[2] / "data" / "raw" / "meteo"
     DATA_DIR.mkdir(parents=True, exist_ok=True)
 
 
