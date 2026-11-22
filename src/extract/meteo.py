@@ -1,19 +1,19 @@
 import requests
 import pandas as pd
 from pathlib import Path
+from src.utils import charger_config
 
-# Fonction d'extraction du data set meteo
+#Fonction d'extraction du data set meteo
 
 def meteo_dataset_extraction():
-    START_DATE = "2025-09-01"
-    END_DATE = "2026-08-31"
+    periode = charger_config()["periode"]
 
-    # Coordonnées de Paris
+    #Coordonnées de Paris
     LATITUDE = 48.8566
     LONGITUDE = 2.3522
 
-    # Dossier des données brutes
-    DATA_DIR = Path(__file__).resolve().parent.parent / "data" / "raw"
+    #Dossier des données brutes
+    DATA_DIR = Path(__file__).resolve().parents[2] / "data" / "raw" / "meteo"
     DATA_DIR.mkdir(parents=True, exist_ok=True)
 
 
@@ -22,8 +22,8 @@ def meteo_dataset_extraction():
     params = {
         "latitude": LATITUDE,
         "longitude": LONGITUDE,
-        "start_date": START_DATE,
-        "end_date": END_DATE,
+        "start_date": periode["debut"],
+        "end_date": periode["fin"],
         "hourly": [
             "temperature_2m",
             "relative_humidity_2m",
