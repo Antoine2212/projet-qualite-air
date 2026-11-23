@@ -37,12 +37,18 @@ from src.utils import RACINE, charger_config, configurer_logs
 log = logging.getLogger(__name__)
 
 VARIABLES = ("AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_SESSION_TOKEN", "AWS_S3_ENDPOINT")
+ENDPOINT_PAR_DEFAUT = "minio.lab.sspcloud.fr"
 
 
-def connecter() -> s3fs.S3FileSystem:
-    """Ouvre le stockage SSP Cloud à partir des variables d'environnement (ou de .env)."""
+def connecter(anonyme_possible: bool = False) -> s3fs.S3FileSystem:
+    """Ouvre le stockage SSP Cloud à partir des variables d'environnement (ou de .env).
+    Sans identifiants, lecture anonyme des dossiers publics si anonyme_possible."""
     load_dotenv(RACINE / ".env")
     manquantes = [v for v in VARIABLES if not os.environ.get(v)]
+    if manquantes and anonyme_possible:
+        log.info("Pas d'identifiants SSP Cloud : lecture anonyme des dossiers publics")
+        serveur = os.environ.get("AWS_S3_ENDPOINT") or ENDPOINT_PAR_DEFAUT
+        return s3fs.S3FileSystem(anon=True, client_kwargs={"endpoint_url": f"https://{serveur}"})
     if manquantes:
         raise RuntimeError(
             f"Identifiants SSP Cloud absents ({', '.join(manquantes)}). Lance le script depuis un "
@@ -122,7 +128,7 @@ def envoyer(config: dict, dataset: str, fs=None) -> int:
 def recuperer(config: dict, dataset: str | None = None, fs=None) -> int:
     """Copie depuis SSP Cloud les fichiers absents ou modifiés en local (tous les datasets si
     dataset vaut None). Renvoie le nombre de fichiers copiés."""
-    fs = fs or connecter()
+    fs = fs or connecter(anonyme_possible=True)
     datasets = [dataset] if dataset else list(config["stockage"]["buckets"])
     total = 0
     for d in datasets:

@@ -84,3 +84,11 @@ stockage:
   buckets:
     airparif: mathismarsoin
     trafic: adefirmas
+
+analyse:
+  trafic_meteo:
+    part_arcs_min: 0.5        # part minimale d'arcs mesurés pour garder une heure
+    seuil_pluie_mm: 0.1
+    bornes_temperature: [-10, 0, 5, 10, 15, 20, 25, 30, 35, 45]
+    tranche_reference: "(10, 15]"
+    retards_hac: 24           # écarts-types HAC
