@@ -92,3 +92,8 @@ analyse:
     bornes_temperature: [-10, 0, 5, 10, 15, 20, 25, 30, 35, 45]
     tranche_reference: "(10, 15]"
     retards_hac: 24           # écarts-types HAC
+  nox_trafic:
+    polluant: nox
+    rayon_m: 500              # arcs pris en compte autour de chaque station
+    rayons_sensibilite: [200, 500, 1000]
+    part_arcs_min: 0.5
