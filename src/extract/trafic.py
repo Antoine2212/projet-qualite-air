@@ -1,8 +1,7 @@
 """Extraction du trafic routier de Paris (API Opendatasoft, comptages permanents).
 
 Le jeu ne garde que 13 mois glissants. Un mois = environ 2 millions de lignes,
-trop pour l'endpoint `records` (offset + limit <= 10 000) : on utilise l'endpoint
-`exports`, un fichier Parquet par mois, sauvegardé brut dans data/raw/trafic/.
+un fichier Parquet par mois, sauvegardé brut dans data/raw/trafic/.
 
 Attention : `t_1h` est en UTC et marque la FIN de la période d'une heure. Le
 fichier d'un mois contient donc t_1h du 1er à 01:00 au 1er du mois suivant à
@@ -28,23 +27,23 @@ logger = logging.getLogger(__name__)
 # Racine du dépôt (ce fichier est dans src/extract/) : les chemins ne dépendent plus du dossier depuis lequel on lance le script ou le notebook.
 RACINE = Path(__file__).resolve().parents[2]
 
-# La config est un dictionnaire imbriqué : cfg["trafic"]["dataset"], etc.
-Config = dict[str, Any]
 
 
-def lire_config(chemin: Path = RACINE / "config.yaml") -> Config:
-    """Lit config.yaml et renvoie son contenu sous forme de dictionnaire."""
+def lire_config(chemin: Path = RACINE / "config.yaml") -> dict:
+    """Lit la config et renvoie son contenu sous forme de dictionnaire."""
     with open(chemin, encoding="utf-8") as f:
         return yaml.safe_load(f)
 
 
 def liste_mois(debut: str, fin: str) -> list[pd.Timestamp]:
-    """Liste des débuts de mois entre deux dates AAAA-MM-JJ (mois de `fin` inclus)."""
+    """Liste des débuts de mois entre deux dates AAAA-MM-JJ (mois de fin inclus), c'est pour savoir 
+    quels mois télécharger en fonction de la date de début et de fin de période que l'on trouve
+    dans la config."""
     return list(pd.date_range(pd.Timestamp(debut).replace(day=1), pd.Timestamp(fin), freq="MS"))
 
 
-def telecharger(url: str, params: dict[str, str], sortie: Path, cfg_t: Config) -> None:
-    """Télécharge `url` vers `sortie` avec réessais (pause doublée à chaque échec).
+def telecharger(url: str, params: dict[str, str], sortie: Path, cfg_t: dict) -> None:
+    """Télécharge url vers sortie avec réessais (pause doublée à chaque échec).
 
     `cfg_t` est la section `trafic` de la config (timeouts, tentatives, pauses).
     Le fichier est écrit sous un nom temporaire puis renommé : un téléchargement
@@ -73,7 +72,7 @@ def telecharger(url: str, params: dict[str, str], sortie: Path, cfg_t: Config) -
     raise RuntimeError(f"téléchargement impossible : {url}")
 
 
-def get_trafic_mois(cfg: Config, mois: pd.Timestamp, dossier: Path) -> Path:
+def get_trafic_mois(cfg: dict, mois: pd.Timestamp, dossier: Path) -> Path:
     """Télécharge le trafic d'un mois (début de mois en UTC) ; ne fait rien si déjà présent."""
     sortie = dossier / f"trafic_{mois:%Y-%m}.parquet"
     if sortie.exists():
@@ -103,7 +102,7 @@ def get_trafic_mois(cfg: Config, mois: pd.Timestamp, dossier: Path) -> Path:
     return sortie
 
 
-def get_referentiel(cfg: Config, dossier: Path) -> Path:
+def get_referentiel(cfg: dict, dossier: Path) -> Path:
     """Télécharge le référentiel géographique des arcs ; ne fait rien si déjà présent."""
     sortie = dossier / "referentiel.parquet"
     if sortie.exists():
