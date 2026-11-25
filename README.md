@@ -9,30 +9,24 @@ Projet Python, ENSAE 2026-2027.
 
 Tout le projet tient dans le notebook `project.ipynb`. Une connexion Internet est nécessaire : au premier lancement, le notebook copie les données brutes du trafic et de la qualité de l'air depuis SSP Cloud dans `data/` (dossiers publics, sans identifiant), refait leur nettoyage et interroge l'API Open-Meteo pour la météo.
 
-### Sur son ordinateur
+### Installer
 
-Prérequis : [Git](https://git-scm.com) et [uv](https://docs.astral.sh/uv/), qui installe aussi la bonne version de Python.
+Sur son ordinateur, il faut [Git](https://git-scm.com) et [uv](https://docs.astral.sh/uv/). Dans les services Jupyter et VS Code de [SSP Cloud](https://datalab.sspcloud.fr), ils sont déjà installés : ouvrir un terminal (Jupyter : File → New → Terminal ; VS Code : Terminal → New Terminal). Puis :
 
 ```bash
 git clone https://github.com/Antoine2212/projet-qualite-air.git
 cd projet-qualite-air
 uv sync
+uv run python -m ipykernel install --user --name qualite-air --display-name qualite-air
 ```
 
-`uv sync` crée l'environnement `.venv/` avec les versions exactes figées dans `uv.lock`. Ouvrir ensuite `project.ipynb` dans VS Code avec le kernel `.venv`, ou dans Jupyter avec `uv run --with jupyter jupyter lab`, puis exécuter toutes les cellules (« Run All »).
+`uv sync` crée l'environnement `.venv/` avec Python 3.12 et les versions exactes figées dans `uv.lock`. La dernière commande le déclare comme kernel Jupyter, sous le nom `qualite-air`.
 
-### Sur SSP Cloud (service Jupyter ou VS Code)
+Sans uv, remplacer les deux dernières commandes par `pip install -r requirements.txt` (avec Python 3.12) et garder le kernel Python par défaut.
 
-Dans un service lancé depuis [datalab.sspcloud.fr](https://datalab.sspcloud.fr), ouvrir un terminal (Jupyter : File → New → Terminal ; VS Code : Terminal → New Terminal) et lancer :
+### Exécuter
 
-```bash
-git clone https://github.com/Antoine2212/projet-qualite-air.git
-cd projet-qualite-air
-pip install -r requirements.txt
-```
-
-`pip` installe les librairies dans le Python du service : il n'y a pas de `.venv`. Ouvrir `project.ipynb` depuis l'explorateur de fichiers, garder le kernel Python par défaut (dans VS Code, le choisir via « Select Kernel »), puis « Run All ». Si le notebook était déjà ouvert avant le `pip install`, redémarrer le kernel.
-
+Ouvrir `project.ipynb` dans VS Code ou dans Jupyter (sur son ordinateur : `uv run --with jupyter jupyter lab`), choisir le kernel `qualite-air`, puis exécuter toutes les cellules (« Run All »).
 
 ### Relancer les extractions
 
@@ -91,10 +85,9 @@ Cette commande efface automatiquement les sorties des notebooks à chaque commit
 
 Le code est sur GitHub, les données sur le stockage S3 de SSP Cloud, jamais dans Git. Les données brutes extraites y sont figées dans le dossier `diffusion` : les sources en ligne changent, la copie figée garantit que tout le monde, correcteur compris, travaille sur les mêmes données.
 
-### En cas d'erreur d'accès aux données
+Chaque dataset est rangé dans l'espace SSP Cloud de la personne qui l'a extrait (`stockage.buckets` dans `config.yaml`) : seule elle peut l'envoyer, tout le monde peut le récupérer.
 
-Hors de SSP Cloud (où les identifiants sont injectés automatiquement), copier `.env.example` en `.env` et le remplir depuis [Stockage de données](https://datalab.sspcloud.fr/s3) (détail du profil S3, section « Identifiants d'accès »). Ces identifiants expirent au bout de 7 jours. `.env` est ignoré par Git.
-Chaque dataset est rangé dans l'espace SSP Cloud de la personne qui l'a extrait (`stockage.buckets` dans `config.yaml`) : seule elle peut l'envoyer, tout le monde peut le récupérer. L'envoi demande des identifiants (voir l'étape 3).
+L'envoi demande des identifiants. Dans un service SSP Cloud, ils sont injectés automatiquement. Ailleurs, copier `.env.example` en `.env` et le remplir depuis [Stockage de données](https://datalab.sspcloud.fr/s3) (détail du profil S3, section « Identifiants d'accès ») ; ils expirent au bout de 7 jours. `.env` est ignoré par Git.
 
 Chaque étape peut aussi se lancer en script, hors du notebook. Les scripts gardent en cache ce qu'ils ont déjà copié ou téléchargé : on peut les relancer sans risque.
 
