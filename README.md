@@ -5,14 +5,13 @@ Peut-on prédire le niveau de pollution horaire au NO₂ à Paris à partir du t
 Projet Python, ENSAE 2026-2027.
 Équipe : Victor Monfort, Mathis Marsoin, Antoine de Firmas.
 
-## Installation
+## Lancer le projet
 
-### Prérequis
+Tout le projet tient dans le notebook `project.ipynb`. Une connexion Internet est nécessaire : au premier lancement, le notebook copie les données brutes du trafic et de la qualité de l'air depuis SSP Cloud dans `data/` (dossiers publics, sans identifiant), refait leur nettoyage et interroge l'API Open-Meteo pour la météo.
 
-- [Git](https://git-scm.com)
-- [uv](https://docs.astral.sh/uv/), qui installe aussi la bonne version de Python
+### Sur son ordinateur
 
-### Récupérer le projet
+Prérequis : [Git](https://git-scm.com) et [uv](https://docs.astral.sh/uv/), qui installe aussi la bonne version de Python.
 
 ```bash
 git clone https://github.com/Antoine2212/projet-qualite-air.git
@@ -20,13 +19,11 @@ cd projet-qualite-air
 uv sync
 ```
 
-`uv sync` crée l'environnement `.venv/` avec les versions exactes figées dans `uv.lock`.
+`uv sync` crée l'environnement `.venv/` avec les versions exactes figées dans `uv.lock`. Ouvrir ensuite `project.ipynb` dans VS Code avec le kernel `.venv`, ou dans Jupyter avec `uv run --with jupyter jupyter lab`, puis exécuter toutes les cellules (« Run All »).
 
-Dans VS Code, vous pouvez aussi passer par `Ctrl+Shift+P` → **Git: Clone**, puis lancer `uv sync` dans le terminal du projet.
+### Sur SSP Cloud (service Jupyter ou VS Code)
 
-### Sur SSP Cloud (test de rendu)
-
-Dans un nouveau service VS Code ou Jupyter de [datalab.sspcloud.fr](https://datalab.sspcloud.fr) :
+Dans un service lancé depuis [datalab.sspcloud.fr](https://datalab.sspcloud.fr), ouvrir un terminal (Jupyter : File → New → Terminal ; VS Code : Terminal → New Terminal) et lancer :
 
 ```bash
 git clone https://github.com/Antoine2212/projet-qualite-air.git
@@ -34,29 +31,72 @@ cd projet-qualite-air
 pip install -r requirements.txt
 ```
 
-`requirements.txt` est généré depuis `uv.lock` : après chaque `uv add`, le régénérer avec
-`uv export --format requirements-txt --no-hashes --no-dev --no-emit-project -o requirements.txt`.
+`pip` installe les librairies dans le Python du service : il n'y a pas de `.venv`. Ouvrir `project.ipynb` depuis l'explorateur de fichiers, garder le kernel Python par défaut (dans VS Code, le choisir via « Select Kernel »), puis « Run All ». Si le notebook était déjà ouvert avant le `pip install`, redémarrer le kernel.
 
-### Notebooks
+### En cas d'erreur d'accès aux données
 
-Choisissez le kernel `.venv` du projet dans VS Code, ou lancez :
+Hors de SSP Cloud (où les identifiants sont injectés automatiquement), copier `.env.example` en `.env` et le remplir depuis [Stockage de données](https://datalab.sspcloud.fr/s3) (détail du profil S3, section « Identifiants d'accès »). Ces identifiants expirent au bout de 7 jours. `.env` est ignoré par Git.
 
-```bash
-uv run --with jupyter jupyter lab
+### Relancer les extractions
+
+Les extractions depuis les sources d'origine ne sont pas relancées (≈1 h pour le trafic, ≈45 min pour la qualité de l'air). Pour les refaire, passer à `True` les variables `RELANCER_EXTRACTION_TRAFIC` et `RELANCER_EXTRACTION_AIR` en haut du notebook. L'API du trafic ne garde que les 13 derniers mois : une nouvelle extraction ne redonnerait pas exactement la même période.
+
+## Structure
+
+```
+project.ipynb   notebook principal, de l'extraction à l'analyse
+config.yaml     paramètres (période, seuils, rayons, adresses des sources et du stockage)
+data/           données locales, ignorées par Git
+src/            extraction, nettoyage, stockage, analyses
+notebooks/      explorations détaillées par source (trafic, qualité de l'air)
+reports/        figures
 ```
 
-## Lancer l'analyse
+## Sources de données
 
-Le code est sur GitHub, les données sur le stockage S3 de SSP Cloud, jamais dans Git.
-Les données brutes extraites y sont figées dans le dossier `diffusion`, lisible par tous les
-utilisateurs de la plateforme : les sources en ligne changent, la copie figée garantit que
-tout le monde, correcteur compris, travaille sur les mêmes données.
+Période étudiée : du 1er novembre 2025 au 30 septembre 2026 (`periode` dans `config.yaml`). Toutes les heures sont en UTC, à l'heure pleine, et marquent le début de la période mesurée.
 
-La période, les seuils et l'emplacement du stockage se règlent dans `config.yaml`. Les scripts
-gardent en cache ce qu'ils ont déjà copié ou téléchargé : on peut les relancer sans risque.
+### Trafic routier
 
-Chaque dataset est rangé dans l'espace SSP Cloud de la personne qui l'a extrait
-(`stockage.buckets` dans `config.yaml`) : seule elle peut l'envoyer, tout le monde peut le récupérer.
+[Comptage routier - Données trafic issues des capteurs permanents](https://opendata.paris.fr/explore/dataset/comptages-routiers-permanents/) et [Comptage routier - Référentiel géographique](https://opendata.paris.fr/explore/dataset/referentiel-comptages-routiers/), Ville de Paris (Direction de la Voirie et des Déplacements), licence [ODbL](https://opendatacommons.org/licenses/odbl/). Débit horaire (`q`, véhicules/h) et taux d'occupation (`k`, %) par arc de voirie, mesurés par boucles électromagnétiques ; le référentiel donne le tracé de chaque arc. Téléchargés par l'API Opendatasoft du portail, sans clé, un fichier par mois. Le jeu ne garde que les 13 derniers mois.
+
+| Table (`data/interim/trafic/`) | Contenu |
+|---|---|
+| `trafic.parquet` | une ligne par (`iu_ac`, `heure`) : `q`, `k`, `libelle`, `longueur_m`, `x_centroide`, `y_centroide` (Lambert-93) ; grille complète, `NaN` quand la mesure manque |
+| `referentiel_nettoye.parquet` | une ligne par arc gardé : `iu_ac`, tracé (`geometry`, Lambert-93), nœuds amont et aval |
+
+### Qualité de l'air
+
+[Mesures horaires LCSQA / Geod'air](https://www.data.gouv.fr/datasets/5b98b648634f415309d52a50), [Licence Ouverte 2.0](https://www.etalab.gouv.fr/licence-ouverte-open-licence/) : concentrations horaires des stations Airparif (NO₂, PM₂.₅, PM₁₀, O₃, NO, NOx), en UTC, avec leurs indicateurs de validité, plus les coordonnées des stations (« Dataset D »). Aucune clé d'API n'est nécessaire. Le flux WFS d'Airparif (projet DIDON) n'a pas été retenu, car ses couches de mesures ne gardent que les dernières 24 heures.
+
+| Table (`data/interim/airparif/`) | Contenu |
+|---|---|
+| `mesures.parquet` | une ligne par (`station`, `heure`), une colonne par polluant en µg/m³ : `no2`, `pm25`, `pm10`, `o3`, `no`, `nox` |
+| `stations.parquet` | `station`, `nom`, `influence` (trafic / fond), `implantation`, `latitude`, `longitude`, `polluants_mesures` |
+| `anomalies.parquet` | valeurs suspectes : capteur figé (mise à NaN), pic isolé (gardée) |
+| `decisions.csv` | chaque décision de nettoyage, avec le nombre de lignes concernées |
+
+### Météo
+
+[Open-Meteo Historical Weather API](https://open-meteo.com/en/docs/historical-weather-api), licence [CC BY 4.0](https://open-meteo.com/en/license) (données météo par Open-Meteo.com, issues des réanalyses ERA5 de Copernicus / ECMWF). Une seule série horaire pour Paris (48,8566° N ; 2,3522° E), en UTC, sans clé d'API : température, humidité, précipitations, pression, couverture nuageuse, vent à 10 m et 100 m (vitesse en km/h, direction en degrés), rafales, rayonnement. La réponse brute est enregistrée dans `data/raw/meteo/meteo.json`.
+
+## Contribuer (équipe)
+
+### Une fois, après avoir cloné
+
+```bash
+uv run nbstripout --install
+```
+
+Cette commande efface automatiquement les sorties des notebooks à chaque commit, ce qui évite les conflits. Le réglage est local : chacun doit la lancer sur sa machine.
+
+### Données et SSP Cloud
+
+Le code est sur GitHub, les données sur le stockage S3 de SSP Cloud, jamais dans Git. Les données brutes extraites y sont figées dans le dossier `diffusion` : les sources en ligne changent, la copie figée garantit que tout le monde, correcteur compris, travaille sur les mêmes données.
+
+Chaque dataset est rangé dans l'espace SSP Cloud de la personne qui l'a extrait (`stockage.buckets` dans `config.yaml`) : seule elle peut l'envoyer, tout le monde peut le récupérer. L'envoi demande des identifiants (voir l'étape 3).
+
+Chaque étape peut aussi se lancer en script, hors du notebook. Les scripts gardent en cache ce qu'ils ont déjà copié ou téléchargé : on peut les relancer sans risque.
 
 ```bash
 uv run python -m src.stockage recuperer   # récupère tous les datasets depuis SSP Cloud
@@ -74,61 +114,12 @@ uv run python -m src.stockage recuperer --dataset trafic
 uv run python -m src.clean.trafic                         # nettoyage, écrit data/interim/trafic/
 ```
 
-**Identifiants SSP Cloud.** Dans un service SSP Cloud, ils sont injectés automatiquement.
-Ailleurs, copier `.env.example` en `.env` et le remplir depuis
-[Stockage de données](https://datalab.sspcloud.fr/s3) (détail du profil S3, section « Identifiants d'accès ») ;
-ils expirent au bout de 7 jours.
-`.env` est ignoré par Git : aucun identifiant ne doit être commité.
+Les contrôles détaillés de chaque source sont dans `notebooks/` : `qualite_air.ipynb`, `explo_trafic.ipynb` (exploration brute) et `analyse_trafic.ipynb`.
 
-Le notebook du projet, `project.ipynb`, récupère les données brutes de chaque dataset depuis SSP Cloud
-et refait leur nettoyage. Il tourne de haut en bas (« Run All ») sans relancer les extractions.
-Les contrôles détaillés de l'extraction de la qualité de l'air sont dans `notebooks/qualite_air.ipynb`.
+### Dépendances
 
-Ensuite, exécutez les notebooks dans l'ordre (`01` à `04`).
-
-## Structure
-
-```
-config.yaml   paramètres (période, stations, rayon, seuils)
-data/         données locales, ignorées par Git
-src/          extraction, nettoyage, fusion, variables, modèles
-notebooks/    analyse, de 01 à 04
-reports/      rapport et figures
-```
-
-## Sources de données
-
-À compléter pour le trafic (Ville de Paris) et la météo (Open-Meteo).
-
-**Qualité de l'air.** [Mesures horaires LCSQA / Geod'air](https://www.data.gouv.fr/datasets/5b98b648634f415309d52a50) (Licence Ouverte 2.0) : concentrations horaires des stations Airparif (NO₂, PM₂.₅, PM₁₀, O₃, NO, NOx), en UTC, avec leurs indicateurs de validité, plus les coordonnées des stations (« Dataset D »). Aucune clé d'API n'est nécessaire. Le flux WFS d'Airparif (projet DIDON) n'a pas été retenu, car ses couches de mesures ne gardent que les dernières 24 heures.
-
-| Table (`data/interim/airparif/`) | Contenu |
-|---|---|
-| `mesures.parquet` | une ligne par (`station`, `heure` UTC, début de période), une colonne par polluant en µg/m³ : `no2`, `pm25`, `pm10`, `o3`, `no`, `nox` |
-| `stations.parquet` | `station`, `nom`, `influence` (trafic / fond), `implantation`, `latitude`, `longitude`, `polluants_mesures` |
-| `anomalies.parquet` | valeurs suspectes : capteur figé (mise à NaN), pic isolé (gardée) |
-| `decisions.csv` | chaque décision de nettoyage, avec le nombre de lignes concernées |
-
-## Contribuer (équipe)
-
-### Une fois, après avoir cloné
+Ajouter une librairie avec `uv add <nom>`, puis commiter `pyproject.toml` et `uv.lock`. Régénérer ensuite `requirements.txt`, utilisé sur SSP Cloud :
 
 ```bash
-uv run nbstripout --install
+uv export --format requirements-txt --no-hashes --no-dev --no-emit-project -o requirements.txt
 ```
-
-Cette commande efface automatiquement les sorties des notebooks à chaque commit, ce qui évite les conflits. Le réglage est local : chacun doit la lancer sur sa machine.
-
-### Routine
-
-1. Se placer sur `main` et faire **Pull**.
-2. Créer une branche par tâche (`extraction-meteo`, `nettoyage-trafic`…). Personne ne travaille directement sur `main`.
-3. Faire de petits commits avec des messages clairs, puis **Publish Branch** ou **Sync**.
-4. Ouvrir une pull request sur GitHub. Un autre membre relit, puis fusionne.
-
-### Règles
-
-- Ajouter une librairie avec `uv add <nom>`, jamais avec `pip install`, puis commiter `pyproject.toml` et `uv.lock`.
-- Un notebook n'a qu'un seul auteur à la fois.
-- Aucune donnée, clé d'API ni fichier `.env` dans Git.
-- Tous les paramètres vont dans `config.yaml`, pas en dur dans le code.
