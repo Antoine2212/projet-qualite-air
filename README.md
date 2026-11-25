@@ -33,9 +33,6 @@ pip install -r requirements.txt
 
 `pip` installe les librairies dans le Python du service : il n'y a pas de `.venv`. Ouvrir `project.ipynb` depuis l'explorateur de fichiers, garder le kernel Python par défaut (dans VS Code, le choisir via « Select Kernel »), puis « Run All ». Si le notebook était déjà ouvert avant le `pip install`, redémarrer le kernel.
 
-### En cas d'erreur d'accès aux données
-
-Hors de SSP Cloud (où les identifiants sont injectés automatiquement), copier `.env.example` en `.env` et le remplir depuis [Stockage de données](https://datalab.sspcloud.fr/s3) (détail du profil S3, section « Identifiants d'accès »). Ces identifiants expirent au bout de 7 jours. `.env` est ignoré par Git.
 
 ### Relancer les extractions
 
@@ -94,6 +91,9 @@ Cette commande efface automatiquement les sorties des notebooks à chaque commit
 
 Le code est sur GitHub, les données sur le stockage S3 de SSP Cloud, jamais dans Git. Les données brutes extraites y sont figées dans le dossier `diffusion` : les sources en ligne changent, la copie figée garantit que tout le monde, correcteur compris, travaille sur les mêmes données.
 
+### En cas d'erreur d'accès aux données
+
+Hors de SSP Cloud (où les identifiants sont injectés automatiquement), copier `.env.example` en `.env` et le remplir depuis [Stockage de données](https://datalab.sspcloud.fr/s3) (détail du profil S3, section « Identifiants d'accès »). Ces identifiants expirent au bout de 7 jours. `.env` est ignoré par Git.
 Chaque dataset est rangé dans l'espace SSP Cloud de la personne qui l'a extrait (`stockage.buckets` dans `config.yaml`) : seule elle peut l'envoyer, tout le monde peut le récupérer. L'envoi demande des identifiants (voir l'étape 3).
 
 Chaque étape peut aussi se lancer en script, hors du notebook. Les scripts gardent en cache ce qu'ils ont déjà copié ou téléchargé : on peut les relancer sans risque.
