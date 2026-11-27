@@ -11,6 +11,7 @@ décalage d'une heure (début de période) se fait au nettoyage.
 Usage en script : uv run python -m src.extract.trafic [AAAA-MM]
 Usage en notebook : from src.extract.trafic import main ; main()
 """
+
 import logging
 import sys
 import time
@@ -28,7 +29,6 @@ logger = logging.getLogger(__name__)
 RACINE = Path(__file__).resolve().parents[2]
 
 
-
 def lire_config(chemin: Path = RACINE / "config.yaml") -> dict:
     """Lit la config et renvoie son contenu sous forme de dictionnaire."""
     with open(chemin, encoding="utf-8") as f:
@@ -36,10 +36,12 @@ def lire_config(chemin: Path = RACINE / "config.yaml") -> dict:
 
 
 def liste_mois(debut: str, fin: str) -> list[pd.Timestamp]:
-    """Liste des débuts de mois entre deux dates AAAA-MM-JJ (mois de fin inclus), c'est pour savoir 
+    """Liste des débuts de mois entre deux dates AAAA-MM-JJ (mois de fin inclus), c'est pour savoir
     quels mois télécharger en fonction de la date de début et de fin de période que l'on trouve
     dans la config."""
-    return list(pd.date_range(pd.Timestamp(debut).replace(day=1), pd.Timestamp(fin), freq="MS"))
+    return list(
+        pd.date_range(pd.Timestamp(debut).replace(day=1), pd.Timestamp(fin), freq="MS")
+    )
 
 
 def telecharger(url: str, params: dict[str, str], sortie: Path, cfg_t: dict) -> None:
@@ -66,8 +68,13 @@ def telecharger(url: str, params: dict[str, str], sortie: Path, cfg_t: dict) -> 
             return
         except requests.RequestException as e:
             pause = cfg_t["pause_retry"] * 2**essai
-            logger.warning("échec (essai %d/%d) : %s ; nouvel essai dans %d s",
-                           essai + 1, cfg_t["tentatives"], e, pause)
+            logger.warning(
+                "échec (essai %d/%d) : %s ; nouvel essai dans %d s",
+                essai + 1,
+                cfg_t["tentatives"],
+                e,
+                pause,
+            )
             time.sleep(pause)
     raise RuntimeError(f"téléchargement impossible : {url}")
 
@@ -97,7 +104,10 @@ def get_trafic_mois(cfg: dict, mois: pd.Timestamp, dossier: Path) -> Path:
     telecharger(url, params, sortie, cfg_t)
     n = pq.read_metadata(sortie).num_rows
     if n == 0:
-        logger.warning("%s : aucune ligne reçue (mois hors de l'historique de l'API ?)", sortie.name)
+        logger.warning(
+            "%s : aucune ligne reçue (mois hors de l'historique de l'API ?)",
+            sortie.name,
+        )
     logger.info("%s : %d lignes en %.0f s", sortie.name, n, time.time() - debut)
     return sortie
 
@@ -118,7 +128,9 @@ def get_referentiel(cfg: dict, dossier: Path) -> Path:
 
 def main(mois_unique: str | None = None) -> None:
     """Télécharge le référentiel puis le trafic de la période (ou d'un seul mois AAAA-MM)."""
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+    logging.basicConfig(
+        level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s"
+    )
     cfg = lire_config()
     dossier = RACINE / cfg["chemins"]["raw"] / "trafic"
     dossier.mkdir(parents=True, exist_ok=True)

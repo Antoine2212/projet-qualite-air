@@ -3,19 +3,19 @@ import pandas as pd
 from pathlib import Path
 from src.utils import charger_config
 
-#Fonction d'extraction du data set meteo
+# Fonction d'extraction du data set meteo
+
 
 def meteo_dataset_extraction():
     periode = charger_config()["periode"]
 
-    #Coordonnées de Paris
+    # Coordonnées de Paris
     LATITUDE = 48.8566
     LONGITUDE = 2.3522
 
-    #Dossier des données brutes
+    # Dossier des données brutes
     DATA_DIR = Path(__file__).resolve().parents[2] / "data" / "raw" / "meteo"
     DATA_DIR.mkdir(parents=True, exist_ok=True)
-
 
     url = "https://archive-api.open-meteo.com/v1/archive"
 

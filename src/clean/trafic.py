@@ -18,6 +18,7 @@ Sorties dans data/interim/trafic/ :
 
 Usage : uv run python -m src.clean.trafic
 """
+
 import logging
 from pathlib import Path
 
@@ -48,12 +49,14 @@ def preparer(trafic: pd.DataFrame, heures: pd.DatetimeIndex) -> pd.DataFrame:
     contiennent normalement que des heures de la période : le filtre ne sert que si
     d'anciens fichiers, découpés autrement, sont restés dans data/raw/trafic/.
     """
-    trafic = pd.DataFrame({
-        "iu_ac": trafic["iu_ac"],
-        "heure": trafic["t_1h"] - pd.Timedelta(hours=1),
-        "q": trafic["q"],
-        "k": trafic["k"],
-    })
+    trafic = pd.DataFrame(
+        {
+            "iu_ac": trafic["iu_ac"],
+            "heure": trafic["t_1h"] - pd.Timedelta(hours=1),
+            "q": trafic["q"],
+            "k": trafic["k"],
+        }
+    )
     dans_periode = trafic["heure"].between(heures[0], heures[-1])
     logger.info("heures hors de la période : %d lignes retirées", (~dans_periode).sum())
     return trafic[dans_periode]
@@ -63,8 +66,19 @@ def dedoublonner_referentiel(ref: pd.DataFrame) -> gpd.GeoDataFrame:
     """Garde une version par arc (date_fin puis date_debut la plus récente), en Lambert-93."""
     ref = ref.sort_values(["iu_ac", "date_fin", "date_debut"], kind="stable")
     unique = ref.drop_duplicates("iu_ac", keep="last")
-    logger.info("référentiel : %d lignes initialement, %d versions anciennes retirées", len(ref), len(ref) - len(unique))
-    colonnes = ["iu_ac", "libelle", "iu_nd_amont", "libelle_nd_amont", "iu_nd_aval", "libelle_nd_aval"]
+    logger.info(
+        "référentiel : %d lignes initialement, %d versions anciennes retirées",
+        len(ref),
+        len(ref) - len(unique),
+    )
+    colonnes = [
+        "iu_ac",
+        "libelle",
+        "iu_nd_amont",
+        "libelle_nd_amont",
+        "iu_nd_aval",
+        "libelle_nd_aval",
+    ]
     geometrie = gpd.GeoSeries.from_wkb(unique["geo_shape"], crs=4326).to_crs(2154)
     return gpd.GeoDataFrame(unique[colonnes], geometry=geometrie)
 
@@ -72,8 +86,11 @@ def dedoublonner_referentiel(ref: pd.DataFrame) -> gpd.GeoDataFrame:
 def retirer_arcs_sans_geo(trafic: pd.DataFrame, arcs: gpd.GeoDataFrame) -> pd.DataFrame:
     """Retire les arcs du trafic absents du référentiel (pas de position connue)."""
     garde = trafic["iu_ac"].isin(arcs["iu_ac"])
-    logger.info("arcs sans géométrie : %d arcs, %d lignes retirées",
-                trafic.loc[~garde, "iu_ac"].nunique(), (~garde).sum())
+    logger.info(
+        "arcs sans géométrie : %d arcs, %d lignes retirées",
+        trafic.loc[~garde, "iu_ac"].nunique(),
+        (~garde).sum(),
+    )
     return trafic[garde]
 
 
@@ -94,12 +111,18 @@ def part_heures_sans_debit(trafic: pd.DataFrame, heures: pd.DatetimeIndex) -> pd
     return 1 - trafic.groupby("iu_ac")["q"].count() / len(heures)
 
 
-def garder_arcs_mesures(trafic: pd.DataFrame, part_max: float, heures: pd.DatetimeIndex) -> pd.DataFrame:
+def garder_arcs_mesures(
+    trafic: pd.DataFrame, part_max: float, heures: pd.DatetimeIndex
+) -> pd.DataFrame:
     """Garde les arcs dont la part d'heures sans débit est inférieure à `part_max`."""
     part = part_heures_sans_debit(trafic, heures)
     gardes = part.index[part <= part_max]
-    logger.info("arcs avec plus de %.0f %% d'heures sans débit : %d retirés, %d gardés",
-                part_max * 100, len(part) - len(gardes), len(gardes))
+    logger.info(
+        "arcs avec plus de %.0f %% d'heures sans débit : %d retirés, %d gardés",
+        part_max * 100,
+        len(part) - len(gardes),
+        len(gardes),
+    )
     return trafic[trafic["iu_ac"].isin(gardes)]
 
 
@@ -112,15 +135,24 @@ def longueur_series_de_zeros(trafic: pd.DataFrame, colonne: str) -> pd.Series:
     zero = trie[colonne] == 0
     # une nouvelle série commence quand on passe de zéro à non zéro (ou l'inverse) ou qu'on change d'arc
     debut_serie = (zero != zero.shift()) | (trie["iu_ac"] != trie["iu_ac"].shift())
-    return zero.groupby(debut_serie.cumsum()).transform("sum") # le .transform diffuse la valeur de la "sum" sur chaque ligne du groupe
+    return zero.groupby(debut_serie.cumsum()).transform(
+        "sum"
+    )  # le .transform diffuse la valeur de la "sum" sur chaque ligne du groupe
 
 
-def retirer_longues_series_de_zeros(trafic: pd.DataFrame, colonne: str, seuil: int) -> pd.DataFrame:
+def retirer_longues_series_de_zeros(
+    trafic: pd.DataFrame, colonne: str, seuil: int
+) -> pd.DataFrame:
     """Met à NaN les séries de plus de `seuil` heures consécutives à zéro (capteur en panne)."""
     panne = longueur_series_de_zeros(trafic, colonne) > seuil
     lignes = panne.index[panne]
-    logger.info("%s : %d valeurs nulles dans des séries de plus de %d h mises à NaN (%d arcs)",
-                colonne, len(lignes), seuil, trafic.loc[lignes, "iu_ac"].nunique())
+    logger.info(
+        "%s : %d valeurs nulles dans des séries de plus de %d h mises à NaN (%d arcs)",
+        colonne,
+        len(lignes),
+        seuil,
+        trafic.loc[lignes, "iu_ac"].nunique(),
+    )
     trafic = trafic.copy()
     trafic.loc[lignes, colonne] = np.nan
     return trafic
@@ -128,13 +160,18 @@ def retirer_longues_series_de_zeros(trafic: pd.DataFrame, colonne: str, seuil: i
 
 def completer_grille(trafic: pd.DataFrame, heures: pd.DatetimeIndex) -> pd.DataFrame:
     """Une ligne par arc et par heure de `heures` ; les heures absentes sont ajoutées avec q et k à NaN."""
-    grille = pd.MultiIndex.from_product([sorted(trafic["iu_ac"].unique()), heures],
-                                        names=["iu_ac", "heure"])
-    # from_product fait un produit cartésien 
+    grille = pd.MultiIndex.from_product(
+        [sorted(trafic["iu_ac"].unique()), heures], names=["iu_ac", "heure"]
+    )
+    # from_product fait un produit cartésien
     complet = trafic.set_index(["iu_ac", "heure"]).reindex(grille).reset_index()
     # reindex crée des lignes avec NaN partout pour les index (couple (axe, heure))
-    # reset index retransforme (axe, heure) en colonnes classiques 
-    logger.info("grille complète : %d lignes, dont %d ajoutées", len(complet), len(complet) - len(trafic))
+    # reset index retransforme (axe, heure) en colonnes classiques
+    logger.info(
+        "grille complète : %d lignes, dont %d ajoutées",
+        len(complet),
+        len(complet) - len(trafic),
+    )
     return complet
 
 
@@ -143,13 +180,15 @@ def ajouter_infos_arcs(trafic: pd.DataFrame, arcs: gpd.GeoDataFrame) -> pd.DataF
 
     Longueur et centroïde sont en mètres, en Lambert-93 (EPSG:2154).
     """
-    infos = pd.DataFrame({
-        "iu_ac": arcs["iu_ac"],
-        "libelle": arcs["libelle"],
-        "longueur_m": arcs.length,
-        "x_centroide": arcs.centroid.x,
-        "y_centroide": arcs.centroid.y,
-    })
+    infos = pd.DataFrame(
+        {
+            "iu_ac": arcs["iu_ac"],
+            "libelle": arcs["libelle"],
+            "longueur_m": arcs.length,
+            "x_centroide": arcs.centroid.x,
+            "y_centroide": arcs.centroid.y,
+        }
+    )
     # validate : chaque arc n'a qu'une ligne dans infos, la fusion ne duplique donc aucune ligne
     return trafic.merge(infos, on="iu_ac", how="left", validate="many_to_one")
 
@@ -158,15 +197,23 @@ def enregistrer(trafic: pd.DataFrame, arcs: gpd.GeoDataFrame, dossier: Path) -> 
     """Écrit trafic.parquet et referentiel_nettoye.parquet (arcs gardés seulement) dans `dossier`."""
     dossier.mkdir(parents=True, exist_ok=True)
     trafic.to_parquet(dossier / "trafic.parquet", index=False)
-    logger.info("trafic.parquet : %d lignes, colonnes %s", len(trafic), list(trafic.columns))
+    logger.info(
+        "trafic.parquet : %d lignes, colonnes %s", len(trafic), list(trafic.columns)
+    )
     gardes = arcs[arcs["iu_ac"].isin(trafic["iu_ac"])]
     gardes.to_parquet(dossier / "referentiel_nettoye.parquet", index=False)
-    logger.info("referentiel_nettoye.parquet : %d arcs, colonnes %s", len(gardes), list(gardes.columns))
+    logger.info(
+        "referentiel_nettoye.parquet : %d arcs, colonnes %s",
+        len(gardes),
+        list(gardes.columns),
+    )
 
 
 def main() -> None:
     """Nettoie le trafic et écrit les deux fichiers de sortie dans data/interim/trafic/."""
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+    logging.basicConfig(
+        level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s"
+    )
     cfg = lire_config()
     cfg_t = cfg["trafic"]
 
@@ -176,7 +223,9 @@ def main() -> None:
     arcs = dedoublonner_referentiel(ref)
     trafic = retirer_arcs_sans_geo(trafic, arcs)
     for colonne in ["q", "k"]:
-        trafic = retirer_longues_series_de_zeros(trafic, colonne, cfg_t["zeros_consecutifs_max"])
+        trafic = retirer_longues_series_de_zeros(
+            trafic, colonne, cfg_t["zeros_consecutifs_max"]
+        )
     trafic = garder_arcs_mesures(trafic, cfg_t["part_sans_debit_max"], heures)
     trafic = completer_grille(trafic, heures)
     trafic = ajouter_infos_arcs(trafic, arcs)

@@ -19,7 +19,14 @@ import pandas as pd
 import requests
 from tqdm.auto import tqdm
 
-from src.utils import charger_config, configurer_logs, dossier, ecrire_atomique, jours_de_la_periode, requete
+from src.utils import (
+    charger_config,
+    configurer_logs,
+    dossier,
+    ecrire_atomique,
+    jours_de_la_periode,
+    requete,
+)
 
 log = logging.getLogger(__name__)
 
@@ -38,7 +45,8 @@ def telecharger_stations(config: dict) -> None:
     # L'adresse du fichier change à chaque mise à jour : on la lit dans la fiche du jeu.
     jeu = requete(config["airparif"]["url_dataset"], config).json()
     url = next(
-        r["url"] for r in jeu["resources"]
+        r["url"]
+        for r in jeu["resources"]
         if r["title"].startswith("Dataset D") and r["format"] == "xls"
     )
     ecrire_atomique(fichier, requete(url, config).content)
@@ -69,7 +77,8 @@ def telecharger_jour(config: dict, jour) -> int | None:
     entete, mesures = lignes[0], lignes[1:]
     # Les lignes gardées sont recopiées telles quelles : seul le filtre passe par csv.
     gardees = [
-        ligne for ligne, champs in zip(mesures, csv.reader(mesures, delimiter=";"))
+        ligne
+        for ligne, champs in zip(mesures, csv.reader(mesures, delimiter=";"))
         if champs[COLONNE_ORGANISME] == a["organisme"]
     ]
     if not gardees:
@@ -96,8 +105,12 @@ def extraire(config: dict) -> None:
             time.sleep(config["api"]["pause_appels_s"])
         barre.set_postfix_str(f"{jour}, {total} nouvelles lignes")
     if absents:
-        log.warning("%d jour(s) sans données : %s", len(absents), ", ".join(map(str, absents)))
-    log.info("Airparif terminé : %d nouvelles lignes en %.0f s", total, time.time() - t0)
+        log.warning(
+            "%d jour(s) sans données : %s", len(absents), ", ".join(map(str, absents))
+        )
+    log.info(
+        "Airparif terminé : %d nouvelles lignes en %.0f s", total, time.time() - t0
+    )
 
 
 def charger_brut(config: dict) -> pd.DataFrame:
@@ -113,9 +126,14 @@ def charger_brut(config: dict) -> pd.DataFrame:
             f"Aucun fichier brut de la période dans {rep} : lancer stockage.recuperer ou l'extraction"
         )
     if manquants:
-        log.warning("%d jour(s) de la période sans fichier brut : %s", len(manquants), ", ".join(manquants))
+        log.warning(
+            "%d jour(s) de la période sans fichier brut : %s",
+            len(manquants),
+            ", ".join(manquants),
+        )
     return pd.concat(
-        (pd.read_csv(f, sep=";", dtype=str) for f in fichiers if f.exists()), ignore_index=True
+        (pd.read_csv(f, sep=";", dtype=str) for f in fichiers if f.exists()),
+        ignore_index=True,
     )
 
 

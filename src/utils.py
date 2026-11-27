@@ -56,7 +56,13 @@ def requete(url: str, config: dict, params: dict | None = None) -> requests.Resp
                 raise
             if essai == api["max_essais"]:
                 raise
-            log.warning("Essai %d/%d échoué (%s), nouvel essai dans %d s", essai, api["max_essais"], e, pause)
+            log.warning(
+                "Essai %d/%d échoué (%s), nouvel essai dans %d s",
+                essai,
+                api["max_essais"],
+                e,
+                pause,
+            )
             time.sleep(pause)
             pause *= 2
 
